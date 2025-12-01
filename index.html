@@ -11,7 +11,7 @@
 
   PRO VERSION:
   - Same as Base version
-  - Adds 70-Hr / 8-Day clock UI (logic coming next)
+  - Adds 70-Hr / 8-Day clock (ON DUTY + DRIVING)
 -->
 <!doctype html>
 <html lang="en">
@@ -359,7 +359,7 @@
         </div>
       </div>
 
-      <!-- NEW: 70-Hr / 8-Day Clock (UI only for now) -->
+      <!-- 70-Hr / 8-Day Clock -->
       <div class="hos-clock-card">
         <h3>70-Hr / 8-Day Clock</h3>
         <div id="weekly-70-time" class="hos-time">70:00:00</div>
@@ -370,7 +370,7 @@
           Tracks total ON DUTY + DRIVING time over the last 8 days.
         </div>
         <button id="btn-reset-70" class="hos-status-btn" style="margin-top:8px; font-size:11px;">
-          Reset 70-Hr (Resets ALL clocks)
+          Reset 70-Hr (after legal 34-hr restart)
         </button>
       </div>
     </div>
@@ -725,7 +725,7 @@
     if(window.hosHasActiveDay && window.hosHasActiveDay()){
       const alsoHos = confirm("Reset HOS clocks (Let’s Roll) as well? \nOK = reset clocks, Cancel = keep clocks running.");
       if(alsoHos && window.hosResetDay){
-        window.hosResetDay();
+        window.hosResetDay(); // daily 10-hr reset, also feeds weekly history
       }
     }
   });
@@ -740,18 +740,21 @@
 })();
 </script>
 
-<!-- HOS clocks logic -->
+<!-- HOS clocks logic + 70-Hr weekly logic -->
 <script>
 (function () {
   "use strict";
 
   const STORAGE_KEY = "hosClocksState_v2";
+  const WEEKLY_KEY  = "hos70Weekly_v1";
 
-  const DUTY_WINDOW_SECONDS = 14 * 3600;
-  const DRIVE_LIMIT_SECONDS = 11 * 3600;
-  const BREAK_DRIVE_LIMIT_SECONDS = 8 * 3600;   // 8 hours of DRIVING since last 30-min break
-  const MIN_BREAK_SECONDS = 30 * 60;
-  const NINE_HOURS_DRIVE_SECONDS = 9 * 3600;
+  const DUTY_WINDOW_SECONDS         = 14 * 3600;
+  const DRIVE_LIMIT_SECONDS         = 11 * 3600;
+  const BREAK_DRIVE_LIMIT_SECONDS   =  8 * 3600;  // driving since last 30-min break
+  const MIN_BREAK_SECONDS           = 30 * 60;
+  const NINE_HOURS_DRIVE_SECONDS    =  9 * 3600;
+  const WEEKLY_LIMIT_SECONDS        = 70 * 3600;  // 70-hour rule
+  const MAX_DAYS_TRACKED            = 8;          // last 8 days
 
   function defaultState() {
     return {
@@ -760,7 +763,8 @@
       lastStatusChange: null,
       driveSecondsUsed: 0,            // total driving today
       driveSinceBreakSeconds: 0,      // driving since last valid 30-min break
-      breakSecondsCurrentStint: 0     // current BREAK stint length
+      breakSecondsCurrentStint: 0,    // current BREAK stint length
+      onDutySecondsUsed: 0           // NEW: ON DUTY + DRIVING for today
     };
   }
 
@@ -784,7 +788,40 @@
     }
   }
 
+  function loadWeekly() {
+    try {
+      const raw = localStorage.getItem(WEEKLY_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      console.error("Failed to load weekly 70-hr history", e);
+      return [];
+    }
+  }
+
+  function saveWeekly() {
+    try {
+      localStorage.setItem(WEEKLY_KEY, JSON.stringify(weeklyDays));
+    } catch (e) {
+      console.error("Failed to save weekly 70-hr history", e);
+    }
+  }
+
+  function dayKey(d) {
+    // YYYY-MM-DD
+    return d.toISOString().slice(0, 10);
+  }
+
+  function pruneWeekly() {
+    weeklyDays.sort((a,b) => a.date.localeCompare(b.date));
+    while (weeklyDays.length > MAX_DAYS_TRACKED) {
+      weeklyDays.shift();
+    }
+  }
+
   let state = loadState();
+  let weeklyDays = loadWeekly();
 
   function now() {
     return new Date();
@@ -819,14 +856,40 @@
     const delta = secondsBetween(last, current);
     if (delta <= 0) return;
 
+    // DRIVING: adds to drive, driveSinceBreak, and ON DUTY
     if (state.dutyStatus === "DRIVING") {
-      state.driveSecondsUsed += delta;
-      state.driveSinceBreakSeconds += delta;
-    } else if (state.dutyStatus === "BREAK") {
+      state.driveSecondsUsed        += delta;
+      state.driveSinceBreakSeconds  += delta;
+      state.onDutySecondsUsed       += delta;
+    }
+    // ON_DUTY (not driving): counts toward ON DUTY but not drive
+    else if (state.dutyStatus === "ON_DUTY") {
+      state.onDutySecondsUsed       += delta;
+    }
+    // BREAK: counts toward current break stint only
+    else if (state.dutyStatus === "BREAK") {
       state.breakSecondsCurrentStint += delta;
     }
 
     state.lastStatusChange = current.toISOString();
+  }
+
+  function commitCurrentDayToWeekly() {
+    if (!state.dayStart) return;
+
+    applyStatusAccrual(); // make sure onDutySecondsUsed is up to date
+    const startDate = new Date(state.dayStart);
+    const key = dayKey(startDate);
+    const totalOnDuty = state.onDutySecondsUsed || 0;
+
+    const idx = weeklyDays.findIndex(d => d.date === key);
+    if (idx >= 0) {
+      weeklyDays[idx].onDutySeconds = totalOnDuty;
+    } else {
+      weeklyDays.push({ date: key, onDutySeconds: totalOnDuty });
+    }
+    pruneWeekly();
+    saveWeekly();
   }
 
   function setDutyStatus(newStatus) {
@@ -838,6 +901,7 @@
       state.lastStatusChange = current.toISOString();
     }
 
+    // Leaving BREAK: if break was 30 minutes or more, reset driveSinceBreakSeconds
     if (state.dutyStatus === "BREAK") {
       if (state.breakSecondsCurrentStint >= MIN_BREAK_SECONDS) {
         state.driveSinceBreakSeconds = 0;
@@ -855,35 +919,55 @@
     const current = now();
 
     if (!state.dayStart) {
-      state.dayStart = current.toISOString();
-      state.driveSecondsUsed = 0;
-      state.driveSinceBreakSeconds = 0;
+      state.dayStart                 = current.toISOString();
+      state.driveSecondsUsed         = 0;
+      state.driveSinceBreakSeconds   = 0;
       state.breakSecondsCurrentStint = 0;
+      state.onDutySecondsUsed        = 0;
     }
 
-    state.dutyStatus = "ON_DUTY";
+    state.dutyStatus       = "ON_DUTY";
     state.lastStatusChange = current.toISOString();
     saveState();
     updateUI();
   }
 
-  function resetHOS() {
+  // Daily 10-hr reset (end of day): save today's duty to weekly, then clear daily clocks
+  function resetHOS(options) {
+    options = options || { saveDay: true };
+    const saveDay = options.saveDay !== false;
+
+    if (saveDay && state.dayStart) {
+      commitCurrentDayToWeekly();
+    }
+
     state = defaultState();
     saveState();
     updateUI();
   }
 
-  const dutyTimeEl = document.getElementById("duty-window-time");
-  const dutyStatusEl = document.getElementById("duty-window-status");
-  const driveTimeEl = document.getElementById("drive-time");
-  const driveStatusEl = document.getElementById("drive-status");
-  const breakTimeEl = document.getElementById("break-clock-time");
-  const breakStatusEl = document.getElementById("break-clock-status");
+  // FULL 34-hr restart: wipes weekly + daily (driver must use after legal 34)
+  function resetWeeklyCompletely() {
+    weeklyDays = [];
+    saveWeekly();
+    state = defaultState();
+    saveState();
+    updateUI();
+  }
 
-  const letsRollBtn = document.getElementById("btn-lets-roll");
-  const resetBtn = document.getElementById("btn-reset-hos");
-  const reset70Btn = document.getElementById("btn-reset-70");
-  const statusButtons = document.querySelectorAll(".hos-status-btn");
+  const dutyTimeEl   = document.getElementById("duty-window-time");
+  const dutyStatusEl = document.getElementById("duty-window-status");
+  const driveTimeEl  = document.getElementById("drive-time");
+  const driveStatusEl= document.getElementById("drive-status");
+  const breakTimeEl  = document.getElementById("break-clock-time");
+  const breakStatusEl= document.getElementById("break-clock-status");
+  const weeklyTimeEl = document.getElementById("weekly-70-time");
+  const weeklyStatusEl = document.getElementById("weekly-70-status");
+
+  const letsRollBtn  = document.getElementById("btn-lets-roll");
+  const resetBtn     = document.getElementById("btn-reset-hos");
+  const reset70Btn   = document.getElementById("btn-reset-70");
+  const statusButtons= document.querySelectorAll(".hos-status-btn");
 
   if (letsRollBtn) {
     letsRollBtn.addEventListener("click", function () {
@@ -893,16 +977,21 @@
 
   if (resetBtn) {
     resetBtn.addEventListener("click", function () {
-      if (confirm("Reset all daily HOS clocks? Only do this after a legal 10-hr break.")) {
-        resetHOS();
+      if (confirm("Reset all daily HOS clocks?\nUse this ONLY after a legal 10-hr break.")) {
+        resetHOS({ saveDay: true });
       }
     });
   }
 
-  // PRO: placeholder until 70-hour logic is wired
   if (reset70Btn) {
     reset70Btn.addEventListener("click", function () {
-      alert("70-Hr / 8-Day PRO clock is not wired yet.\nUI only for now so we can build the logic in the next step.");
+      const ok = confirm(
+        "This will reset your 70-Hr / 8-Day clock AND all daily HOS clocks.\n\n" +
+        "Use this ONLY after you have taken a full, legal 34-hour restart."
+      );
+      if (ok) {
+        resetWeeklyCompletely();
+      }
     });
   }
 
@@ -1028,6 +1117,37 @@
       }
     }
 
+    // 70-Hr / 8-Day weekly clock
+    if (weeklyTimeEl && weeklyStatusEl) {
+      let weeklyTotal = 0;
+      weeklyDays.forEach(d => {
+        weeklyTotal += d.onDutySeconds || 0;
+      });
+
+      // Add today's on-duty time (not yet saved as a day until resetHOS)
+      weeklyTotal += state.onDutySecondsUsed || 0;
+
+      if (weeklyTotal <= 0) {
+        weeklyTimeEl.textContent = "70:00:00";
+        weeklyStatusEl.textContent = "Not started";
+        weeklyStatusEl.className = "hos-status";
+      } else {
+        const remaining = WEEKLY_LIMIT_SECONDS - weeklyTotal;
+        weeklyTimeEl.textContent = formatHMS(remaining);
+
+        if (remaining <= 0) {
+          weeklyStatusEl.textContent = "EXPIRED – 70-hr limit used";
+          weeklyStatusEl.className = "hos-status hos-expired";
+        } else if (remaining <= 5 * 3600) {
+          weeklyStatusEl.textContent = "Warning – less than 5 hrs left";
+          weeklyStatusEl.className = "hos-status hos-warning";
+        } else {
+          weeklyStatusEl.textContent = "Running";
+          weeklyStatusEl.className = "hos-status";
+        }
+      }
+    }
+
     updateStatusButtons();
     saveState();
   }
@@ -1035,8 +1155,8 @@
   setInterval(updateUI, 1000);
   updateUI();
 
-  // expose hooks for main script
-  window.hosResetDay = resetHOS;
+  // expose hooks for main script (daily reset)
+  window.hosResetDay = function(){ resetHOS({ saveDay: true }); };
   window.hosHasActiveDay = function(){ return !!state.dayStart; };
 })();
 </script>
