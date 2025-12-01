@@ -594,26 +594,48 @@
     $('#ptaCoVal').textContent = fmt(data.ptaCo);
   }
 
-  function explainETA(eta, appt, breakMs=0, bufferMs=0, dwellMs=0, extraRestMs=0){
-    const parts=[];
-    if(breakMs) parts.push('+ 30m rest');
-    if(dwellMs) parts.push(`+ ${Math.round(dwellMs/60000)}m dwell`);
-    if(extraRestMs){
-      const h = Math.round(extraRestMs/3600000);
-      parts.push(`+ ${h}h off-duty resets`);
-    }
-    if(bufferMs){
-      const h = Math.round(bufferMs/3600000);
-      parts.push(`+ ${h}h buffer`);
-    }
-    if(appt){
-      const diffMin = Math.round((appt - eta)/60000);
-      if(diffMin<0) parts.push(`${Math.abs(diffMin)} min late`);
-      else if(diffMin>60) parts.push(`${Math.abs(diffMin)} min early`);
-      else parts.push('within 60 min window');
-    }
-    return parts.length? parts.join(' • ') : '';
+function explainETA(
+  eta,
+  appt,
+  breakMs = 0,
+  bufferMs = 0,
+  dwellMs = 0,
+  extraRestMs = 0,
+  fuelMs = 0
+){
+  const parts = [];
+
+  if (breakMs) parts.push('+ 30m rest');
+
+  if (fuelMs) {
+    const fm = Math.round(fuelMs / 60000);
+    parts.push(`+ ${fm}m fuel (on-duty)`);
   }
+
+  if (dwellMs) {
+    parts.push(`+ ${Math.round(dwellMs / 60000)}m dwell`);
+  }
+
+  if (extraRestMs) {
+    const h = Math.round(extraRestMs / 3600000);
+    parts.push(`+ ${h}h off-duty resets`);
+  }
+
+  if (bufferMs) {
+    const h = Math.round(bufferMs / 3600000);
+    parts.push(`+ ${h}h buffer`);
+  }
+
+  if (appt) {
+    const diffMin = Math.round((appt - eta) / 60000);
+    if (diffMin < 0) parts.push(`${Math.abs(diffMin)} min late`);
+    else if (diffMin > 60) parts.push(`${Math.abs(diffMin)} min early`);
+    else parts.push('within 60 min window');
+  }
+
+  return parts.length ? parts.join(' • ') : '';
+}
+ 
 
   // === runCalc with 450 miles / 9-hr / multi-day logic ===
   function runCalc(){
@@ -689,13 +711,16 @@ const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
 
     const driveToConsHrs = (isFinite(lm)?lm:0) / v;
 
-    // Base ETA: PTA after shipper + drive to consignee + 30m break (if needed) + 10-hr resets
-    let ETA_CO = new Date(
-      PTA_SH.getTime()
-      + hours(driveToConsHrs)
-      + breakMs
-      + extraRestMs
-    );
+// Base ETA: PTA after shipper + fuel stop (if any) + drive to consignee
+//           + 30m rest (if needed) + 10-hr resets
+let ETA_CO = new Date(
+  PTA_SH.getTime()
+  + fuelMs               // ⬅️ on-duty fuel time, no drive / break
+  + hours(driveToConsHrs)
+  + breakMs
+  + extraRestMs
+);
+
 
     // 9/2 buffer is handled by HOS clocks; no extra buffer at consignee
     let afterConsBufferMs = 0;
