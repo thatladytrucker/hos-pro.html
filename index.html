@@ -670,7 +670,12 @@ const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
 
     // --- BASE DRIVE SEGMENTS ---
     const driveToShipperHrs = (isFinite(dh)?dh:0) / v;
-    const ETA_SH = new Date(tripStart.getTime() + hours(driveToShipperHrs));
+    const ETA_SH = new Date(
+    tripStart.getTime()
+    + fuelMs                 // <-- NEW: On-duty fuel time affects shipper ETA
+    + hours(driveToShipperHrs)
+);
+
     const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
 
     // --- SAFETY + MULTI-DAY LOGIC (450 miles OR 9 hours, capped at 11) ---
