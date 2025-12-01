@@ -601,15 +601,14 @@ function explainETA(
   bufferMs = 0,
   dwellMs = 0,
   extraRestMs = 0,
-  fuelMs = 0
+  fuelMs = 0            // NEW: fuel stop time (ms)
 ){
   const parts = [];
 
   if (breakMs) parts.push('+ 30m rest');
 
   if (fuelMs) {
-    const fm = Math.round(fuelMs / 60000);
-    parts.push(`+ ${fm}m fuel (on-duty)`);
+    parts.push(`+ ${Math.round(fuelMs / 60000)}m fuel stop (on-duty)`);
   }
 
   if (dwellMs) {
@@ -635,6 +634,7 @@ function explainETA(
 
   return parts.length ? parts.join(' • ') : '';
 }
+
  
 
   // === runCalc with 450 miles / 9-hr / multi-day logic ===
