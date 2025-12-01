@@ -1,0 +1,1044 @@
+<!--
+  © 2025 ArtsnCrabs / Toya Cramsey
+  HOS Load Calculator PRO (PWA Version)
+  All rights reserved.
+
+  This software and its associated assets (HTML, CSS, JavaScript, design,
+  service worker, manifest, icons, and logic) are protected under U.S.
+  intellectual property laws. No part of this application may be copied,
+  reproduced, modified, sold, or distributed without explicit written
+  permission from the owner.
+
+  PRO VERSION:
+  - Same as Base version
+  - Adds 70-Hr / 8-Day clock UI (logic coming next)
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HOS Load Calculator PRO (Offline)</title>
+<meta name="theme-color" content="#0f172a" />
+<style>
+  :root{
+    --bg:#0b1020; --card:#111936; --ink:#e6ecff; --muted:#96a2c7;
+    --accent:#3b82f6; --ok:#16a34a; --warn:#eab308; --late:#dc2626; --chip:#1f2a4d;
+    --outline:#2b3a6b;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{
+    margin:0; background:linear-gradient(180deg,#0a0f1f, #0b0f2a 40%, #0a0f1f);
+    color:var(--ink); font:500 16px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+    -webkit-font-smoothing:antialiased; padding:18px;
+  }
+  h1{font-size:20px;margin:0 0 12px}
+  .sub{color:var(--muted); font-size:13px; margin:4px 0 16px}
+  .grid{display:grid; gap:12px}
+  .card{background:var(--card); border:1px solid var(--outline); border-radius:14px; padding:14px}
+  .row{display:grid; gap:10px}
+  .row.cols-2{grid-template-columns:1fr 1fr}
+  .row.cols-3{grid-template-columns:1fr 1fr 1fr}
+  .label{font-size:12px;color:var(--muted); margin-bottom:6px}
+  input, select{
+    width:100%; background:#0a1330; color:var(--ink);
+    border:1px solid var(--outline); border-radius:12px; padding:10px 12px; outline:none;
+  }
+  input[type="range"]{height:36px; padding:0}
+  .inline{display:flex; gap:8px; align-items:center}
+  .btn{
+    background:var(--accent); color:white; border:none; padding:10px 14px; border-radius:10px;
+    font-weight:600; cursor:pointer
+  }
+  .mutebtn{background:#1b2447; color:var(--ink)}
+  .capsule{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--chip); border:1px solid var(--outline); border-radius:999px; padding:10px 14px;
+    font-weight:600
+  }
+  .stat{padding:4px 10px; border-radius:999px; font-size:12px; font-weight:800}
+  .ok{background:color-mix(in oklab, var(--ok) 25%, transparent); border:1px solid var(--ok)}
+  .warn{background:color-mix(in oklab, var(--warn) 25%, transparent); border:1px solid var(--warn)}
+  .late{background:color-mix(in oklab, var(--late) 25%, transparent); border:1px solid var(--late)}
+  .note{color:var(--muted); font-size:12px}
+  .hr{height:1px;background:var(--outline); margin:10px 0}
+  .pill{background:#0c1537; padding:6px 10px; border-radius:999px; border:1px solid var(--outline); font-size:12px}
+  .right{justify-content:flex-end}
+  .stickyfoot{position:sticky; bottom:0; padding-top:10px; background:linear-gradient(180deg,transparent, rgba(11,15,32,.95) 30%);}
+  .fab{
+    position:fixed; right:16px; bottom:16px; z-index:9999;
+    background:var(--ok); color:white; border:none; border-radius:999px;
+    padding:14px 18px; font-weight:800; box-shadow:0 8px 24px rgba(0,0,0,.35); cursor:pointer;
+  }
+  .fab:active{transform:translateY(1px)}
+
+  /* HOS clocks layout */
+  .hos-section {
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--outline);
+    background:#020617;
+  }
+  .hos-section h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+  .hos-clock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .hos-clock-card {
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--outline);
+    background:#0b1120;
+  }
+  .hos-time {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .hos-status {
+    font-size: 11px;
+    margin-top: 4px;
+    color: var(--muted);
+  }
+  .hos-controls {
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:8px;
+  }
+  .hos-status-buttons {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    align-items:center;
+    font-size:12px;
+  }
+  .hos-status-btn,
+  #btn-reset-hos {
+    padding:6px 10px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    background:#1f2937;
+    color:#f9fafb;
+    font-size:12px;
+  }
+  .hos-status-btn.active {
+    outline:2px solid #10b981;
+    background:#065f46;
+  }
+  #btn-reset-hos {
+    background:#4b5563;
+    font-size:11px;
+  }
+  .hos-expired {
+    color:#f97373;
+  }
+  .hos-warning {
+    color:#facc15;
+  }
+
+  /* Recent trips */
+  .recent-list {
+    margin-top:6px;
+    font-size:12px;
+  }
+  .recent-trip {
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid var(--outline);
+    margin-bottom:4px;
+    background:#020617;
+  }
+  .recent-trip-title {
+    font-weight:600;
+    font-size:12px;
+  }
+  .recent-trip-meta {
+    font-size:11px;
+    color:var(--muted);
+  }
+  #clearTrips {
+    margin-top:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:none;
+    background:#4b5563;
+    color:#f9fafb;
+    font-size:11px;
+    cursor:pointer;
+  }
+
+  .hos-disclaimer {
+    margin-top: 18px;
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.4;
+    border-top: 1px solid var(--outline);
+    color: var(--muted);
+    background:#020617;
+  }
+  .hos-disclaimer strong {
+    display:block;
+    margin-bottom:3px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+  }
+</style>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+</head>
+<body>
+  <h1>HOS Load Calculator PRO (Offline)</h1>
+  <div class="sub">Driver workflow: enter trip → check ETAs/PTAs → color status vs appointment.</div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row cols-2">
+        <div>
+          <div class="label">TRIP ID</div>
+          <div class="inline">
+            <input id="tripId" placeholder="e.g., TEST001" />
+            <button class="btn mutebtn" id="genId">Auto</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">AVG (MPH) — 50 to 75</div>
+          <div class="inline">
+            <input id="mph" type="range" min="50" max="75" step="1" value="60" />
+            <span class="pill"><span id="mphVal">60</span> MPH</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="row">
+        <div>
+          <div class="label">TRIP START</div>
+          <input id="tripStart" type="datetime-local" />
+        </div>
+      </div>
+
+      <div class="row cols-3">
+        <div>
+          <div class="label">DEADHEAD MILES</div>
+          <input id="deadhead" type="number" inputmode="decimal" min="0" placeholder="e.g., 100" />
+        </div>
+        <div>
+          <div class="label">LOADED MILES</div>
+          <input id="loaded" type="number" inputmode="decimal" min="0" placeholder="e.g., 500" />
+        </div>
+        <div>
+          <div class="label">TOTAL MILES</div>
+          <input id="total" type="number" readonly tabindex="-1" />
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row cols-2">
+        <div>
+          <div class="label">SHIPPER APPOINTMENT</div>
+          <input id="shipperAppt" type="datetime-local" />
+        </div>
+        <div>
+          <div class="label">SHIPPER STOP TYPE</div>
+          <select id="shipperStop">
+            <option value="DROP30">Drop 30</option>
+            <option value="DROP60">Drop 60</option>
+            <option value="LIVE60">Live 60</option>
+            <option value="LIVE120">Live 120</option>
+            <option value="BACKHAUL90">Backhaul 90</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row cols-2">
+        <div>
+          <div class="label">CONSIGNEE APPOINTMENT</div>
+          <input id="consAppt" type="datetime-local" />
+        </div>
+        <div>
+          <div class="label">CONSIGNEE STOP TYPE</div>
+          <select id="consStop">
+            <option value="DROP30">Drop 30</option>
+            <option value="DROP60">Drop 60</option>
+            <option value="LIVE60">Live 60</option>
+            <option value="LIVE120">Live 120</option>
+            <option value="BACKHAUL90">Backhaul 90</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stickyfoot">
+        <div class="hr"></div>
+        <div class="inline right">
+          <button id="calc" class="btn">Calculate</button>
+          <button id="reset" class="btn mutebtn">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="results" style="display:none">
+      <div class="label">Driver Output</div>
+
+      <div class="row">
+        <div class="capsule" id="etaShCaps">
+          <div>ETA TO SHIPPER</div>
+          <div class="stat" id="etaShStat">—</div>
+        </div>
+        <div class="small note" id="etaShExplain"></div>
+      </div>
+
+      <div class="row">
+        <div class="capsule">
+          <div>PTA AFTER STOP</div>
+          <div class="stat pill" id="ptaShVal">—</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="capsule" id="etaCoCaps">
+          <div>ETA TO CONSIGNEE</div>
+          <div class="stat" id="etaCoStat">—</div>
+        </div>
+        <div class="small note" id="etaCoExplain"></div>
+      </div>
+
+      <div class="row">
+        <div class="capsule">
+          <div>PTA AFTER CONSIGNEE</div>
+          <div class="stat pill" id="ptaCoVal">—</div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="note">
+        • Auto 30-min rest break is included when total driving ≥ 8h.  
+        • Long loads use 450 miles / 9-hr safety limit per day (11-hr legal ceiling) with 10-hr resets.  
+        • Status colors compare ETA against the appointment (on-time ≤60m early = green; >60m early = yellow; ≥1m late = red).
+      </div>
+      <div class="note" style="margin-top:10px">
+        © 2025 Toya Cramsey (ArtsnCrabs). All rights reserved. For guidance only — driver remains responsible for HOS compliance.
+      </div>
+    </div>
+  </div>
+
+  <!-- HOS clocks section (PRO: includes 70-Hr / 8-Day card) -->
+  <section id="hos-clocks" class="hos-section">
+    <h2>HOS Clocks</h2>
+
+    <div class="hos-clock-grid">
+      <!-- 14-Hour On-Duty Window -->
+      <div class="hos-clock-card">
+        <h3>14-Hr On-Duty Window</h3>
+        <div id="duty-window-time" class="hos-time">14:00:00</div>
+        <div id="duty-window-status" class="hos-status">Not started</div>
+      </div>
+
+      <!-- 11-Hr Drive Time -->
+      <div class="hos-clock-card">
+        <h3>11-Hr Drive Time</h3>
+        <div id="drive-time" class="hos-time">11:00:00</div>
+        <div id="drive-status" class="hos-status">Not started</div>
+      </div>
+
+      <!-- 8-Hr / 30-Min Break -->
+      <div class="hos-clock-card">
+        <h3>8-Hr / 30-Min Break</h3>
+        <div id="break-clock-time" class="hos-time">08:00:00</div>
+        <div id="break-clock-status" class="hos-status">
+          Not started
+        </div>
+      </div>
+
+      <!-- NEW: 70-Hr / 8-Day Clock (UI only for now) -->
+      <div class="hos-clock-card">
+        <h3>70-Hr / 8-Day Clock</h3>
+        <div id="weekly-70-time" class="hos-time">70:00:00</div>
+        <div id="weekly-70-status" class="hos-status">
+          Not started
+        </div>
+        <div style="margin-top:8px; font-size:11px; color:var(--muted);">
+          Tracks total ON DUTY + DRIVING time over the last 8 days.
+        </div>
+        <button id="btn-reset-70" class="hos-status-btn" style="margin-top:8px; font-size:11px;">
+          Reset 70-Hr (Resets ALL clocks)
+        </button>
+      </div>
+    </div>
+
+    <div class="hos-controls">
+      <div class="hos-status-buttons">
+        <span>Duty Status:</span>
+        <button data-status="ON_DUTY" class="hos-status-btn">On Duty (Not Driving)</button>
+        <button data-status="DRIVING" class="hos-status-btn">Driving</button>
+        <button data-status="BREAK" class="hos-status-btn">Break / Off Duty</button>
+        <button data-status="OFF" class="hos-status-btn">Off (End Day)</button>
+      </div>
+
+      <button id="btn-reset-hos" class="hos-reset">
+        Reset HOS (after legal 10-hr break)
+      </button>
+    </div>
+  </section>
+
+  <!-- Recent trips -->
+  <section id="recent-trips" class="hos-section">
+    <h2>Recent Trips (last 8)</h2>
+    <div id="recentTripsList" class="recent-list note">
+      No trips saved yet.
+    </div>
+    <button id="clearTrips">Clear recent trips</button>
+  </section>
+
+  <!-- Disclaimer -->
+  <footer id="hos-disclaimer" class="hos-disclaimer">
+    <strong>Disclaimer:</strong>
+    <span>
+      This HOS Load Calculator and its clocks are planning and training tools only.
+      They do not replace your official ELD, paper log, or any FMCSA-required
+      records. Calculations are based on general FMCSA 14-hour, 11-hour, and
+      8-hour/30-minute rules and may not reflect all exceptions, split sleeper
+      provisions, exemptions, company policies, or time zone differences. The
+      driver and motor carrier remain fully responsible for complying with all
+      applicable laws, regulations, and company rules at all times. Always follow
+      your official log and FMCSA guidance if there is any conflict.
+    </span>
+  </footer>
+
+  <!-- Floating Let’s Roll button (HOS clocks only) -->
+  <button class="fab" id="btn-lets-roll">Let’s Roll</button>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = sel => document.querySelector(sel);
+  const fmt = d => d ? new Intl.DateTimeFormat(undefined, {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d) : '—';
+  const hours = h => h * 3600 * 1000;
+  const minutes = m => m * 60 * 1000;
+
+  const dwell = code => ({
+    'DROP30': minutes(30),
+    'DROP60': minutes(60),
+    'LIVE60': minutes(60),
+    'LIVE120': minutes(120),
+    'BACKHAUL90': minutes(90)
+  }[code] ?? 0);
+
+  function statusClass(eta, appt){
+    if(!eta || !appt) return {label: fmt(eta), cls: ''};
+    const diffMin = Math.round((appt - eta)/60000);
+    if(diffMin < 0){ return {label: fmt(eta) + ' • LATE', cls:'late'}; }
+    if(diffMin > 60){ return {label: fmt(eta) + ' • TOO EARLY', cls:'warn'}; }
+    return {label: fmt(eta) + ' • ON TIME', cls:'ok'};
+  }
+
+  // --- Recent trips storage helpers ---
+  const RECENT_KEY = "hosRecentTrips_v2";
+  let recentTrips = [];
+
+  function loadRecentTrips(){
+    try{
+      const raw = localStorage.getItem(RECENT_KEY);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){
+      console.error("Recent trips load error", e);
+      return [];
+    }
+  }
+
+  function saveRecentTrips(){
+    try{
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recentTrips));
+    }catch(e){
+      console.error("Recent trips save error", e);
+    }
+  }
+
+  function renderRecentTrips(){
+    const listEl = $('#recentTripsList');
+    if(!listEl) return;
+    if(!recentTrips.length){
+      listEl.textContent = "No trips saved yet.";
+      return;
+    }
+    listEl.innerHTML = "";
+    recentTrips.forEach(trip=>{
+      const div = document.createElement('div');
+      div.className = "recent-trip";
+
+      const title = document.createElement('div');
+      title.className = "recent-trip-title";
+      title.textContent = trip.tripId || "(no ID)";
+
+      const meta1 = document.createElement('div');
+      meta1.className = "recent-trip-meta";
+      meta1.textContent =
+        `Start: ${trip.tripStartFmt || "—"} • ` +
+        `Shipper Appt: ${trip.shipperApptFmt || "—"} • ` +
+        `Consignee Appt: ${trip.consApptFmt || "—"}`;
+
+      const meta2 = document.createElement('div');
+      meta2.className = "recent-trip-meta";
+      meta2.textContent =
+        `DH: ${trip.dh ?? "—"} • LD: ${trip.lm ?? "—"} • TOT: ${trip.totalMiles ?? "—"} • ` +
+        `ETA Shipper: ${trip.etaShFmt || "—"} • PTA Consignee: ${trip.ptaCoFmt || "—"}`;
+
+      div.appendChild(title);
+      div.appendChild(meta1);
+      div.appendChild(meta2);
+      listEl.appendChild(div);
+    });
+  }
+
+  function saveRecentTrip(meta){
+    recentTrips.unshift(meta);
+    if(recentTrips.length > 8) recentTrips.length = 8;
+    saveRecentTrips();
+    renderRecentTrips();
+  }
+
+  const clearBtn = $('#clearTrips');
+  if(clearBtn){
+    clearBtn.addEventListener('click', ()=>{
+      if(confirm("Clear all recent trips from this device?")){
+        recentTrips = [];
+        saveRecentTrips();
+        renderRecentTrips();
+      }
+    });
+  }
+
+  $('#genId').addEventListener('click', ()=>{
+    const now = new Date();
+    const stamp = now.toISOString().replace(/\D/g,'').slice(2,12);
+    $('#tripId').value = 'TRIP' + stamp;
+  });
+
+  const mph = $('#mph'), mphVal = $('#mphVal'); 
+  mph.addEventListener('input', ()=> mphVal.textContent = mph.value);
+  mphVal.textContent = mph.value;
+
+  function recalcTotal(){
+    const d = parseFloat($('#deadhead').value||0);
+    const l = parseFloat($('#loaded').value||0);
+    $('#total').value = isFinite(d+l) ? (d+l) : '';
+  }
+  $('#deadhead').addEventListener('input', recalcTotal);
+  $('#loaded').addEventListener('input', recalcTotal);
+
+  function valDate(s){
+    if(!s) return null;
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  function showResults(data){
+    const wrap = $('#results');
+    if(!data){ wrap.style.display='none'; return; }
+    wrap.style.display='block';
+
+    const etaShStat = $('#etaShStat'), etaShExplain = $('#etaShExplain');
+    etaShStat.textContent = data.etaSh.label;
+    etaShStat.className = 'stat ' + (data.etaSh.cls||'');
+    etaShExplain.textContent = data.explainSh;
+
+    $('#ptaShVal').textContent = fmt(data.ptaSh);
+
+    const etaCoStat = $('#etaCoStat'), etaCoExplain = $('#etaCoExplain');
+    etaCoStat.textContent = data.etaCo.label;
+    etaCoStat.className = 'stat ' + (data.etaCo.cls||'');
+    etaCoExplain.textContent = data.explainCo;
+
+    $('#ptaCoVal').textContent = fmt(data.ptaCo);
+  }
+
+  function explainETA(eta, appt, breakMs=0, bufferMs=0, dwellMs=0, extraRestMs=0){
+    const parts=[];
+    if(breakMs) parts.push('+ 30m rest');
+    if(dwellMs) parts.push(`+ ${Math.round(dwellMs/60000)}m dwell`);
+    if(extraRestMs){
+      const h = Math.round(extraRestMs/3600000);
+      parts.push(`+ ${h}h off-duty resets`);
+    }
+    if(bufferMs){
+      const h = Math.round(bufferMs/3600000);
+      parts.push(`+ ${h}h buffer`);
+    }
+    if(appt){
+      const diffMin = Math.round((appt - eta)/60000);
+      if(diffMin<0) parts.push(`${Math.abs(diffMin)} min late`);
+      else if(diffMin>60) parts.push(`${Math.abs(diffMin)} min early`);
+      else parts.push('within 60 min window');
+    }
+    return parts.length? parts.join(' • ') : '';
+  }
+
+  // === runCalc with 450 miles / 9-hr / multi-day logic ===
+  function runCalc(){
+    const tripStart = valDate($('#tripStart').value);
+    const dh = parseFloat($('#deadhead').value||0);
+    const lm = parseFloat($('#loaded').value||0);
+    const v = Math.max(50, Math.min(75, parseFloat($('#mph').value||60)));
+    const shipAppt = valDate($('#shipperAppt').value);
+    const consAppt = valDate($('#consAppt').value);
+    const shipStop = $('#shipperStop').value;
+    const consStop = $('#consStop').value;
+    const tripId = $('#tripId').value || '';
+
+    const totalMiles = (isFinite(dh)?dh:0) + (isFinite(lm)?lm:0);
+    $('#total').value = totalMiles;
+
+    if(!tripStart || v<=0){
+      showResults(null);
+      alert('Enter at least: Trip Start, MPH, and miles.');
+      return;
+    }
+
+    // sanity check: consignee appt cannot be before shipper appt (if both present)
+    if (shipAppt && consAppt && consAppt < shipAppt) {
+      alert("ERROR: Delivery appointment cannot be before pickup appointment.");
+      return;
+    }
+
+    // --- BASE DRIVE SEGMENTS ---
+    const driveToShipperHrs = (isFinite(dh)?dh:0) / v;
+    const ETA_SH = new Date(tripStart.getTime() + hours(driveToShipperHrs));
+    const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
+
+    // --- SAFETY + MULTI-DAY LOGIC (450 miles OR 9 hours, capped at 11) ---
+
+    const MAX_DRIVE_MILES = 450;      // Safety: max miles per "drive day"
+    const SAFETY_MAX_DRIVE_HRS = 9;   // Safety: max hours per drive day
+    const FMCSA_MAX_DRIVE_HRS = 11;   // Legal ceiling
+
+    const totalDrivingHrs = totalMiles <= 0 ? 0 : (totalMiles / v);
+    const breakMs = totalDrivingHrs >= 8 ? minutes(30) : 0;
+    const consDwell = dwell(consStop);
+
+    // Time equivalent of 450 miles at entered MPH
+    const maxDailyDriveHrsFromMiles = MAX_DRIVE_MILES / v;
+
+    // Safety limit that favors the driver (whichever yields more miles)
+    const driverFavorableSafetyLimit = Math.max(
+      SAFETY_MAX_DRIVE_HRS,      // 9 hours
+      maxDailyDriveHrsFromMiles  // time for 450 miles at this speed
+    );
+
+    // Final max drive hours per day, with 11-hr legal cap
+    const maxDailyDriveHrs = Math.min(
+      FMCSA_MAX_DRIVE_HRS,
+      driverFavorableSafetyLimit
+    );
+
+    // How many "driving days" are needed?
+    const requiredDrivingDays = totalDrivingHrs <= 0
+      ? 0
+      : Math.ceil(totalDrivingHrs / maxDailyDriveHrs);
+
+    // Each additional day before the last needs a 10-hr reset
+    const requiredBreaks = Math.max(0, requiredDrivingDays - 1);
+    const extraRestMs = hours(10) * requiredBreaks;
+
+    // --- ETA TO CONSIGNEE WITH MULTI-DAY REST BAKED IN ---
+
+    const driveToConsHrs = (isFinite(lm)?lm:0) / v;
+
+    // Base ETA: PTA after shipper + drive to consignee + 30m break (if needed) + 10-hr resets
+    let ETA_CO = new Date(
+      PTA_SH.getTime()
+      + hours(driveToConsHrs)
+      + breakMs
+      + extraRestMs
+    );
+
+    // 9/2 buffer is handled by HOS clocks; no extra buffer at consignee
+    let afterConsBufferMs = 0;
+
+    const PTA_CO = new Date(ETA_CO.getTime() + consDwell + afterConsBufferMs);
+
+    // --- STATUS + EXPLANATION ---
+
+    const etaSh = statusClass(ETA_SH, shipAppt);
+    const etaCo = statusClass(ETA_CO, consAppt);
+
+    const payload = {
+      etaSh,
+      ptaSh: PTA_SH,
+      etaCo,
+      ptaCo: PTA_CO,
+      explainSh: explainETA(ETA_SH, shipAppt),
+      explainCo: explainETA(
+        ETA_CO,
+        consAppt,
+        breakMs,
+        afterConsBufferMs,
+        consDwell,
+        extraRestMs
+      )
+    };
+
+    showResults(payload);
+
+    // --- SAVE TO RECENT TRIPS ---
+
+    saveRecentTrip({
+      tripId,
+      tripStartFmt: fmt(tripStart),
+      shipperApptFmt: shipAppt ? fmt(shipAppt) : "—",
+      consApptFmt: consAppt ? fmt(consAppt) : "—",
+      dh: isFinite(dh) ? dh : "",
+      lm: isFinite(lm) ? lm : "",
+      totalMiles: isFinite(totalMiles) ? totalMiles : "",
+      etaShFmt: fmt(ETA_SH),
+      ptaCoFmt: fmt(PTA_CO),
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  $('#calc').addEventListener('click', runCalc);
+
+  function resetCalculations(){
+    document.querySelectorAll('input').forEach(el=>{
+      if(el.type==='range'){ el.value=60; $('#mphVal').textContent=60; }
+      else if(el.type==='number' || el.type==='datetime-local' || el.type==='text'){ el.value=''; }
+    });
+    $('#shipperStop').value='DROP30';
+    $('#consStop').value='DROP30';
+    $('#results').style.display='none';
+  }
+
+  $('#reset').addEventListener('click', ()=>{
+    resetCalculations();
+
+    if(window.hosHasActiveDay && window.hosHasActiveDay()){
+      const alsoHos = confirm("Reset HOS clocks (Let’s Roll) as well? \nOK = reset clocks, Cancel = keep clocks running.");
+      if(alsoHos && window.hosResetDay){
+        window.hosResetDay();
+      }
+    }
+  });
+
+  // load recent trips on startup
+  recentTrips = loadRecentTrips();
+  renderRecentTrips();
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js');
+  }
+})();
+</script>
+
+<!-- HOS clocks logic -->
+<script>
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "hosClocksState_v2";
+
+  const DUTY_WINDOW_SECONDS = 14 * 3600;
+  const DRIVE_LIMIT_SECONDS = 11 * 3600;
+  const BREAK_DRIVE_LIMIT_SECONDS = 8 * 3600;   // 8 hours of DRIVING since last 30-min break
+  const MIN_BREAK_SECONDS = 30 * 60;
+  const NINE_HOURS_DRIVE_SECONDS = 9 * 3600;
+
+  function defaultState() {
+    return {
+      dayStart: null,
+      dutyStatus: "OFF",              // OFF | ON_DUTY | DRIVING | BREAK
+      lastStatusChange: null,
+      driveSecondsUsed: 0,            // total driving today
+      driveSinceBreakSeconds: 0,      // driving since last valid 30-min break
+      breakSecondsCurrentStint: 0     // current BREAK stint length
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      return Object.assign(defaultState(), parsed || {});
+    } catch (e) {
+      console.error("Failed to load HOS state", e);
+      return defaultState();
+    }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error("Failed to save HOS state", e);
+    }
+  }
+
+  let state = loadState();
+
+  function now() {
+    return new Date();
+  }
+
+  function secondsBetween(a, b) {
+    return (b.getTime() - a.getTime()) / 1000;
+  }
+
+  function formatHMS(totalSeconds) {
+    const s = Math.floor(totalSeconds);
+    const clamped = isNaN(s) ? 0 : s;
+    const sign = clamped < 0 ? "-" : "";
+    const abs = Math.abs(clamped);
+    const hours = Math.floor(abs / 3600);
+    const minutes = Math.floor((abs % 3600) / 60);
+    const seconds = abs % 60;
+    return (
+      sign +
+      String(hours).padStart(2, "0") +
+      ":" +
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(seconds).padStart(2, "0")
+    );
+  }
+
+  function applyStatusAccrual() {
+    if (!state.lastStatusChange) return;
+    const last = new Date(state.lastStatusChange);
+    const current = now();
+    const delta = secondsBetween(last, current);
+    if (delta <= 0) return;
+
+    if (state.dutyStatus === "DRIVING") {
+      state.driveSecondsUsed += delta;
+      state.driveSinceBreakSeconds += delta;
+    } else if (state.dutyStatus === "BREAK") {
+      state.breakSecondsCurrentStint += delta;
+    }
+
+    state.lastStatusChange = current.toISOString();
+  }
+
+  function setDutyStatus(newStatus) {
+    const current = now();
+
+    if (state.lastStatusChange) {
+      applyStatusAccrual();
+    } else {
+      state.lastStatusChange = current.toISOString();
+    }
+
+    if (state.dutyStatus === "BREAK") {
+      if (state.breakSecondsCurrentStint >= MIN_BREAK_SECONDS) {
+        state.driveSinceBreakSeconds = 0;
+      }
+      state.breakSecondsCurrentStint = 0;
+    }
+
+    state.dutyStatus = newStatus;
+    state.lastStatusChange = current.toISOString();
+    saveState();
+    updateUI();
+  }
+
+  function startDay() {
+    const current = now();
+
+    if (!state.dayStart) {
+      state.dayStart = current.toISOString();
+      state.driveSecondsUsed = 0;
+      state.driveSinceBreakSeconds = 0;
+      state.breakSecondsCurrentStint = 0;
+    }
+
+    state.dutyStatus = "ON_DUTY";
+    state.lastStatusChange = current.toISOString();
+    saveState();
+    updateUI();
+  }
+
+  function resetHOS() {
+    state = defaultState();
+    saveState();
+    updateUI();
+  }
+
+  const dutyTimeEl = document.getElementById("duty-window-time");
+  const dutyStatusEl = document.getElementById("duty-window-status");
+  const driveTimeEl = document.getElementById("drive-time");
+  const driveStatusEl = document.getElementById("drive-status");
+  const breakTimeEl = document.getElementById("break-clock-time");
+  const breakStatusEl = document.getElementById("break-clock-status");
+
+  const letsRollBtn = document.getElementById("btn-lets-roll");
+  const resetBtn = document.getElementById("btn-reset-hos");
+  const reset70Btn = document.getElementById("btn-reset-70");
+  const statusButtons = document.querySelectorAll(".hos-status-btn");
+
+  if (letsRollBtn) {
+    letsRollBtn.addEventListener("click", function () {
+      startDay();
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", function () {
+      if (confirm("Reset all daily HOS clocks? Only do this after a legal 10-hr break.")) {
+        resetHOS();
+      }
+    });
+  }
+
+  // PRO: placeholder until 70-hour logic is wired
+  if (reset70Btn) {
+    reset70Btn.addEventListener("click", function () {
+      alert("70-Hr / 8-Day PRO clock is not wired yet.\nUI only for now so we can build the logic in the next step.");
+    });
+  }
+
+  statusButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const newStatus = this.getAttribute("data-status");
+      setDutyStatus(newStatus);
+      updateStatusButtons();
+    });
+  });
+
+  function updateStatusButtons() {
+    statusButtons.forEach(function (btn) {
+      const s = btn.getAttribute("data-status");
+      if (s === state.dutyStatus) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+
+  function updateUI() {
+    applyStatusAccrual();
+
+    const current = now();
+
+    // 14-hour duty window
+    if (!state.dayStart) {
+      dutyTimeEl.textContent = "14:00:00";
+      dutyStatusEl.textContent = "Not started";
+      dutyStatusEl.className = "hos-status";
+    } else {
+      const dayStartDate = new Date(state.dayStart);
+      const dutyElapsed = secondsBetween(dayStartDate, current);
+      const dutyRemaining = DUTY_WINDOW_SECONDS - dutyElapsed;
+
+      dutyTimeEl.textContent = formatHMS(dutyRemaining);
+
+      if (dutyRemaining <= 0) {
+        dutyStatusEl.textContent = "EXPIRED – 14-hr window used";
+        dutyStatusEl.className = "hos-status hos-expired";
+      } else if (dutyRemaining <= 2 * 3600) {
+        dutyStatusEl.textContent = "Warning – less than 2 hrs left";
+        dutyStatusEl.className = "hos-status hos-warning";
+      } else {
+        dutyStatusEl.textContent = "Running";
+        dutyStatusEl.className = "hos-status";
+      }
+    }
+
+    // Driving clocks
+    const totalDriveSeconds =
+      state.driveSecondsUsed +
+      (state.dutyStatus === "DRIVING" && state.lastStatusChange
+        ? secondsBetween(new Date(state.lastStatusChange), current)
+        : 0);
+
+    const driveRemaining = DRIVE_LIMIT_SECONDS - totalDriveSeconds;
+    driveTimeEl.textContent = formatHMS(driveRemaining);
+
+    if (!state.dayStart) {
+      driveStatusEl.textContent = "Not started";
+      driveStatusEl.className = "hos-status";
+    } else if (driveRemaining <= 0) {
+      driveStatusEl.textContent = "EXPIRED – 11-hr drive limit";
+      driveStatusEl.className = "hos-status hos-expired";
+    } else if (totalDriveSeconds >= NINE_HOURS_DRIVE_SECONDS && driveRemaining > 0) {
+      driveStatusEl.textContent =
+        "9/2 rule: ≥9h driving — start parking, shut down, then 10h off + 2h buffer.";
+      driveStatusEl.className = "hos-status hos-warning";
+    } else if (driveRemaining <= 3600) {
+      driveStatusEl.textContent = "Warning – less than 1 hr drive left";
+      driveStatusEl.className = "hos-status hos-warning";
+    } else {
+      driveStatusEl.textContent =
+        state.dutyStatus === "DRIVING"
+          ? "Running (Driving)"
+          : "Paused (Not Driving)";
+      driveStatusEl.className = "hos-status";
+    }
+
+    // 8-hour / 30-min break (DRIVING only)
+    const drivingSinceBreakSeconds =
+      state.driveSinceBreakSeconds +
+      (state.dutyStatus === "DRIVING" && state.lastStatusChange
+        ? secondsBetween(new Date(state.lastStatusChange), current)
+        : 0);
+
+    const anyDrivingYet = totalDriveSeconds > 0;
+
+    if (!state.dayStart || !anyDrivingYet) {
+      breakTimeEl.textContent = "08:00:00";
+      breakStatusEl.textContent = "Not started";
+      breakStatusEl.className = "hos-status";
+    } else {
+      const breakClockRemaining = BREAK_DRIVE_LIMIT_SECONDS - drivingSinceBreakSeconds;
+      breakTimeEl.textContent = formatHMS(breakClockRemaining);
+
+      if (breakClockRemaining <= 0) {
+        breakStatusEl.textContent = "BREAK REQUIRED – 30-min off duty needed";
+        breakStatusEl.className = "hos-status hos-expired";
+      } else if (breakClockRemaining <= 3600) {
+        breakStatusEl.textContent = "Warning – less than 1 hr to 30-min break";
+        breakStatusEl.className = "hos-status hos-warning";
+      } else {
+        if (state.dutyStatus === "BREAK") {
+          if (state.breakSecondsCurrentStint >= MIN_BREAK_SECONDS) {
+            breakStatusEl.textContent = "30-min break completed";
+          } else {
+            const remainingFor30 =
+              MIN_BREAK_SECONDS - state.breakSecondsCurrentStint;
+            breakStatusEl.textContent =
+              "On break – " +
+              formatHMS(remainingFor30) +
+              " to complete 30 mins";
+          }
+        } else {
+          breakStatusEl.textContent =
+            "Running – time until 30-min break required";
+        }
+        breakStatusEl.className = "hos-status";
+      }
+    }
+
+    updateStatusButtons();
+    saveState();
+  }
+
+  setInterval(updateUI, 1000);
+  updateUI();
+
+  // expose hooks for main script
+  window.hosResetDay = resetHOS;
+  window.hosHasActiveDay = function(){ return !!state.dayStart; };
+})();
+</script>
+</body>
+</html>
