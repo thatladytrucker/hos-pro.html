@@ -626,6 +626,10 @@
     const shipStop = $('#shipperStop').value;
     const consStop = $('#consStop').value;
     const tripId = $('#tripId').value || '';
+// === Fuel Stop Inputs ===
+const fuelEnabled = $('#fuelEnabled').checked;
+const fuelMinutes = parseFloat($('#fuelMinutes').value || 0);
+const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
 
     const totalMiles = (isFinite(dh)?dh:0) + (isFinite(lm)?lm:0);
     $('#total').value = totalMiles;
