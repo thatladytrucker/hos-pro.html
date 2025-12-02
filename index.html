@@ -646,6 +646,17 @@ const fuelEnabled = $('#fuelEnabled').checked;
 const fuelMinutes = parseFloat($('#fuelMinutes').value || 0);
 const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
 
+// When in the trip does this fuel time happen?
+const fuelTimingEl = $('#fuelTiming');
+const fuelTiming = fuelTimingEl ? fuelTimingEl.value : 'betweenStops';
+
+// Split fuel into segments for the timeline
+const fuelBeforeMs  = fuelMs && fuelTiming === 'beforeShipper'  ? fuelMs : 0;
+const fuelBetweenMs = fuelMs && fuelTiming === 'betweenStops'   ? fuelMs : 0;
+// Fuel after consignee doesn't change ETA/PTA, only clocks
+const fuelAfterMs   = fuelMs && fuelTiming === 'afterConsignee' ? fuelMs : 0;
+
+
     const totalMiles = (isFinite(dh)?dh:0) + (isFinite(lm)?lm:0);
     $('#total').value = totalMiles;
 
@@ -662,16 +673,16 @@ const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
     }
 
     // --- BASE DRIVE SEGMENTS ---
-    const driveToShipperHrs = (isFinite(dh)?dh:0) / v;
-    const ETA_SH = new Date(
-    tripStart.getTime()
-    + fuelMs                 // <-- NEW: On-duty fuel time affects shipper ETA
-    + hours(driveToShipperHrs)
+const driveToShipperHrs = (isFinite(dh)?dh:0) / v;
+
+const ETA_SH = new Date(
+  tripStart.getTime()
+  + fuelBeforeMs              // <-- ONLY fuel before-shipper affects ETA to shipper
+  + hours(driveToShipperHrs)
 );
 
-    const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
+const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
 
-    // --- SAFETY + MULTI-DAY LOGIC (450 miles OR 9 hours, capped at 11) ---
 
     const MAX_DRIVE_MILES = 450;      // Safety: max miles per "drive day"
     const SAFETY_MAX_DRIVE_HRS = 9;   // Safety: max hours per drive day
