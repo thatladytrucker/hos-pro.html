@@ -768,7 +768,7 @@ const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
 //           + 30m rest (if needed) + 10-hr resets
 let ETA_CO = new Date(
   PTA_SH.getTime()
-  + fuelMs               // ⬅️ on-duty fuel time, no drive / break
+  + fuelAfterShipperMs   // <--- THIS is the fuel between shipper & consignee
   + hours(driveToConsHrs)
   + breakMs
   + extraRestMs
