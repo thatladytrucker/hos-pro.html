@@ -679,9 +679,27 @@ function explainETA(
     const consStop = $('#consStop').value;
     const tripId = $('#tripId').value || '';
 // === Fuel Stop Inputs ===
-const fuelEnabled = $('#fuelEnabled').checked;
-const fuelMinutes = parseFloat($('#fuelMinutes').value || 0);
-const fuelMs = fuelEnabled && fuelMinutes > 0 ? minutes(fuelMinutes) : 0;
+const fuelEnabled  = $('#fuelEnabled').checked;
+const fuelMinutes  = parseFloat($('#fuelMinutes').value || 0);
+const fuelWhen     = $('#fuelWhen').value || 'afterShipper';  // dropdown
+
+// Split fuel time based on *when* it happens
+let fuelBeforeMs        = 0;  // fueling before shipper
+let fuelAfterShipperMs  = 0;  // fueling between shipper & consignee
+let fuelAfterConsigneeMs = 0; // fueling after consignee
+
+if (fuelEnabled && fuelMinutes > 0) {
+  const fm = minutes(fuelMinutes); // convert mins → ms
+
+  if (fuelWhen === 'before') {
+    fuelBeforeMs = fm;
+  } else if (fuelWhen === 'afterShipper') {
+    fuelAfterShipperMs = fm;
+  } else if (fuelWhen === 'afterConsignee') {
+    fuelAfterConsigneeMs = fm;
+  }
+}
+
 
 // When in the trip does this fuel time happen?
 const fuelTimingEl = $('#fuelTiming');
