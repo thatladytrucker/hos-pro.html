@@ -701,10 +701,6 @@ if (fuelEnabled && fuelMinutes > 0) {
 }
 
 
-// When in the trip does this fuel time happen?
-const fuelTimingEl = $('#fuelTiming');
-const fuelTiming = fuelTimingEl ? fuelTimingEl.value : 'betweenStops';
-
 // Split fuel into segments for the timeline
 const fuelBeforeMs  = fuelMs && fuelTiming === 'beforeShipper'  ? fuelMs : 0;
 const fuelBetweenMs = fuelMs && fuelTiming === 'betweenStops'   ? fuelMs : 0;
