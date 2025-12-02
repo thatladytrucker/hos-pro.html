@@ -701,13 +701,6 @@ if (fuelEnabled && fuelMinutes > 0) {
 }
 
 
-// Split fuel into segments for the timeline
-const fuelBeforeMs  = fuelMs && fuelTiming === 'beforeShipper'  ? fuelMs : 0;
-const fuelBetweenMs = fuelMs && fuelTiming === 'betweenStops'   ? fuelMs : 0;
-// Fuel after consignee doesn't change ETA/PTA, only clocks
-const fuelAfterMs   = fuelMs && fuelTiming === 'afterConsignee' ? fuelMs : 0;
-
-
     const totalMiles = (isFinite(dh)?dh:0) + (isFinite(lm)?lm:0);
     $('#total').value = totalMiles;
 
