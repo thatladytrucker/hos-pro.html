@@ -12,6 +12,7 @@
   PRO VERSION:
   - Same as Base version
   - Adds 70-Hr / 8-Day clock (ON DUTY + DRIVING)
+  - Adds optional STOP 02 (mid-stop) with miles split and ETA/PTA
 -->
 <!doctype html>
 <html lang="en">
@@ -245,11 +246,11 @@
 
       <div class="row cols-2">
         <div>
-          <div class="label">SHIPPER APPOINTMENT</div>
+          <div class="label">SHIPPER APPOINTMENT (STOP 01)</div>
           <input id="shipperAppt" type="datetime-local" />
         </div>
         <div>
-          <div class="label">SHIPPER STOP TYPE</div>
+          <div class="label">SHIPPER STOP TYPE (STOP 01)</div>
           <select id="shipperStop">
             <option value="DROP30">Drop 30</option>
             <option value="DROP60">Drop 60</option>
@@ -260,13 +261,46 @@
         </div>
       </div>
 
+      <!-- OPTIONAL STOP 02 (mid-stop) -->
+      <div class="hr"></div>
+      <div class="row">
+        <div class="inline">
+          <input id="stop2Enabled" type="checkbox" />
+          <span class="pill">Enable STOP 02 (mid-stop)</span>
+        </div>
+      </div>
+
+      <div id="stop2Fields" class="row cols-3" style="display:none">
+        <div>
+          <div class="label">STOP 02 APPOINTMENT</div>
+          <input id="stop2Appt" type="datetime-local" />
+        </div>
+        <div>
+          <div class="label">STOP 02 STOP TYPE</div>
+          <select id="stop2Stop">
+            <option value="DROP30">Drop 30</option>
+            <option value="DROP60">Drop 60</option>
+            <option value="LIVE60">Live 60</option>
+            <option value="LIVE120">Live 120</option>
+            <option value="BACKHAUL90">Backhaul 90</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">MILES TO STOP 02 (of loaded)</div>
+          <input id="milesToStop2" type="number" inputmode="decimal" min="0" placeholder="e.g., 200" />
+        </div>
+      </div>
+      <!-- /STOP 02 -->
+
+      <div class="hr"></div>
+
       <div class="row cols-2">
         <div>
-          <div class="label">CONSIGNEE APPOINTMENT</div>
+          <div class="label">FINAL (90) APPOINTMENT</div>
           <input id="consAppt" type="datetime-local" />
         </div>
         <div>
-          <div class="label">CONSIGNEE STOP TYPE</div>
+          <div class="label">FINAL (90) STOP TYPE</div>
           <select id="consStop">
             <option value="DROP30">Drop 30</option>
             <option value="DROP60">Drop 60</option>
@@ -277,40 +311,39 @@
         </div>
       </div>
 
-      <!-- FUEL STOP (Optional) -->
-      <div class="row cols-2">
-        <div class="row cols-3">
-          <!-- Enable fuel stop -->
-          <div>
-            <div class="label">FUEL STOP (Optional)</div>
-            <div class="inline">
-              <input id="fuelEnabled" type="checkbox" />
-              <span class="pill">On-duty — no drive / break</span>
-            </div>
+      <!-- FUEL STOP (single, clean block) -->
+      <div class="hr"></div>
+      <div class="row cols-3">
+        <!-- Enable fuel stop -->
+        <div>
+          <div class="label">FUEL STOP (Optional)</div>
+          <div class="inline">
+            <input id="fuelEnabled" type="checkbox" />
+            <span class="pill">On-duty — no drive / break</span>
           </div>
+        </div>
 
-          <!-- Fuel time in minutes -->
-          <div>
-            <div class="label">FUEL TIME (MINUTES)</div>
-            <input
-              id="fuelMinutes"
-              type="number"
-              min="5"
-              step="5"
-              value="30"
-              inputmode="numeric"
-            />
-          </div>
+        <!-- Fuel time in minutes -->
+        <div>
+          <div class="label">FUEL TIME (MINUTES)</div>
+          <input
+            id="fuelMinutes"
+            type="number"
+            min="5"
+            step="5"
+            value="30"
+            inputmode="numeric"
+          />
+        </div>
 
-          <!-- Fuel timing location -->
-          <div>
-            <div class="label">FUEL TIMING</div>
-            <select id="fuelWhen">
-              <option value="before">Before shipper</option>
-              <option value="afterShipper" selected>After shipper</option>
-              <option value="afterConsignee">After consignee</option>
-            </select>
-          </div>
+        <!-- Fuel timing location -->
+        <div>
+          <div class="label">FUEL TIMING</div>
+          <select id="fuelWhen">
+            <option value="before">Before shipper</option>
+            <option value="afterShipper" selected>After shipper</option>
+            <option value="afterConsignee">After final (90)</option>
+          </select>
         </div>
       </div>
       <!-- /FUEL STOP -->
@@ -323,12 +356,15 @@
         </div>
       </div>
 
+    </div>
+
     <div class="card" id="results" style="display:none">
       <div class="label">Driver Output</div>
 
+      <!-- SHIPPER / STOP 01 -->
       <div class="row">
         <div class="capsule" id="etaShCaps">
-          <div>ETA TO SHIPPER</div>
+          <div>ETA TO SHIPPER (STOP 01)</div>
           <div class="stat" id="etaShStat">—</div>
         </div>
         <div class="small note" id="etaShExplain"></div>
@@ -336,14 +372,34 @@
 
       <div class="row">
         <div class="capsule">
-          <div>PTA AFTER STOP</div>
+          <div>PTA AFTER STOP 01</div>
           <div class="stat pill" id="ptaShVal">—</div>
         </div>
       </div>
 
+      <!-- STOP 02 (optional) -->
+      <div id="stop2Results" style="display:none">
+        <div class="row">
+          <div class="capsule" id="etaSt2Caps">
+            <div>ETA TO STOP 02</div>
+            <div class="stat" id="etaSt2Stat">—</div>
+          </div>
+          <div class="small note" id="etaSt2Explain"></div>
+        </div>
+
+        <div class="row">
+          <div class="capsule">
+            <div>PTA AFTER STOP 02</div>
+            <div class="stat pill" id="ptaSt2Val">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- /STOP 02 -->
+
+      <!-- FINAL (90) -->
       <div class="row">
         <div class="capsule" id="etaCoCaps">
-          <div>ETA TO CONSIGNEE</div>
+          <div>ETA TO FINAL (90)</div>
           <div class="stat" id="etaCoStat">—</div>
         </div>
         <div class="small note" id="etaCoExplain"></div>
@@ -351,15 +407,16 @@
 
       <div class="row">
         <div class="capsule">
-          <div>PTA AFTER CONSIGNEE</div>
+          <div>PTA AFTER FINAL (90)</div>
           <div class="stat pill" id="ptaCoVal">—</div>
         </div>
       </div>
+      <!-- /FINAL (90) -->
 
       <div class="hr"></div>
       <div class="note">
-        • Auto 30-min rest break is included when total driving ≥ 8h.  
-        • Long loads use 450 miles / 9-hr safety limit per day (11-hr legal ceiling) with 10-hr resets.  
+        • Auto 30-min rest break is included when total driving ≥ 8h.<br>
+        • Long loads use 450 miles / 9-hr safety limit per day (11-hr legal ceiling) with 10-hr resets.<br>
         • Status colors compare ETA against the appointment (on-time ≤60m early = green; >60m early = yellow; ≥1m late = red).
       </div>
       <div class="note" style="margin-top:10px">
@@ -524,13 +581,13 @@
       meta1.textContent =
         `Start: ${trip.tripStartFmt || "—"} • ` +
         `Shipper Appt: ${trip.shipperApptFmt || "—"} • ` +
-        `Consignee Appt: ${trip.consApptFmt || "—"}`;
+        `Final (90) Appt: ${trip.consApptFmt || "—"}`;
 
       const meta2 = document.createElement('div');
       meta2.className = "recent-trip-meta";
       meta2.textContent =
         `DH: ${trip.dh ?? "—"} • LD: ${trip.lm ?? "—"} • TOT: ${trip.totalMiles ?? "—"} • ` +
-        `ETA Shipper: ${trip.etaShFmt || "—"} • PTA Consignee: ${trip.ptaCoFmt || "—"}`;
+        `ETA Shipper: ${trip.etaShFmt || "—"} • PTA Final: ${trip.ptaCoFmt || "—"}`;
 
       div.appendChild(title);
       div.appendChild(meta1);
@@ -581,23 +638,51 @@
     return isNaN(d) ? null : d;
   }
 
+  // STOP 02 visibility toggle
+  const stop2EnabledEl = $('#stop2Enabled');
+  const stop2Fields = $('#stop2Fields');
+  const stop2Results = $('#stop2Results');
+  function updateStop2Visibility(){
+    if(!stop2Fields || !stop2EnabledEl) return;
+    stop2Fields.style.display = stop2EnabledEl.checked ? 'grid' : 'none';
+  }
+  if(stop2EnabledEl){
+    stop2EnabledEl.addEventListener('change', updateStop2Visibility);
+    updateStop2Visibility();
+  }
+
   function showResults(data){
     const wrap = $('#results');
     if(!data){ wrap.style.display='none'; return; }
     wrap.style.display='block';
 
+    // Shipper / STOP 01
     const etaShStat = $('#etaShStat'), etaShExplain = $('#etaShExplain');
     etaShStat.textContent = data.etaSh.label;
     etaShStat.className = 'stat ' + (data.etaSh.cls||'');
     etaShExplain.textContent = data.explainSh;
-
     $('#ptaShVal').textContent = fmt(data.ptaSh);
 
+    // STOP 02 (optional)
+    if(stop2Results){
+      if(data.stop2Active && data.etaSt2){
+        stop2Results.style.display = 'block';
+        const etaSt2Stat = $('#etaSt2Stat');
+        const etaSt2Explain = $('#etaSt2Explain');
+        etaSt2Stat.textContent = data.etaSt2.label;
+        etaSt2Stat.className = 'stat ' + (data.etaSt2.cls||'');
+        etaSt2Explain.textContent = data.explainSt2 || '';
+        $('#ptaSt2Val').textContent = fmt(data.ptaSt2);
+      } else {
+        stop2Results.style.display = 'none';
+      }
+    }
+
+    // FINAL (90)
     const etaCoStat = $('#etaCoStat'), etaCoExplain = $('#etaCoExplain');
     etaCoStat.textContent = data.etaCo.label;
     etaCoStat.className = 'stat ' + (data.etaCo.cls||'');
     etaCoExplain.textContent = data.explainCo;
-
     $('#ptaCoVal').textContent = fmt(data.ptaCo);
   }
 
@@ -613,25 +698,20 @@
     const parts = [];
 
     if (breakMs) parts.push('+ 30m rest');
-
     if (fuelMs) {
       parts.push(`+ ${Math.round(fuelMs / 60000)}m fuel stop (on-duty)`);
     }
-
     if (dwellMs) {
       parts.push(`+ ${Math.round(dwellMs / 60000)}m dwell`);
     }
-
     if (extraRestMs) {
       const h = Math.round(extraRestMs / 3600000);
       parts.push(`+ ${h}h off-duty resets`);
     }
-
     if (bufferMs) {
       const h = Math.round(bufferMs / 3600000);
       parts.push(`+ ${h}h buffer`);
     }
-
     if (appt) {
       const diffMin = Math.round((appt - eta) / 60000);
       if (diffMin < 0) parts.push(`${Math.abs(diffMin)} min late`);
@@ -642,6 +722,7 @@
     return parts.length ? parts.join(' • ') : '';
   }
 
+  // === runCalc with 450 miles / 9-hr / multi-day logic + STOP 02 ===
   function runCalc(){
     const tripStart = valDate($('#tripStart').value);
     const dh = parseFloat($('#deadhead').value||0);
@@ -652,6 +733,13 @@
     const shipStop = $('#shipperStop').value;
     const consStop = $('#consStop').value;
     const tripId = $('#tripId').value || '';
+
+    // STOP 02 inputs
+    const stop2Enabled = !!(stop2EnabledEl && stop2EnabledEl.checked);
+    const stop2Appt = stop2Enabled ? valDate($('#stop2Appt').value) : null;
+    const stop2Stop = stop2Enabled ? $('#stop2Stop').value : null;
+    const milesToStop2Raw = stop2Enabled ? parseFloat($('#milesToStop2').value || 0) : 0;
+    const milesToStop2 = stop2Enabled && isFinite(milesToStop2Raw) ? milesToStop2Raw : 0;
 
     // Fuel inputs
     const fuelEnabled  = $('#fuelEnabled').checked;
@@ -669,7 +757,7 @@
       } else if (fuelWhen === 'afterShipper') {
         fuelAfterShipperMs = fm;
       } else if (fuelWhen === 'afterConsignee') {
-        fuelAfterConsigneeMs = fm;
+        fuelAfterConsigneeMs = fm; // interpreted as fuel after final stop
       }
     }
 
@@ -682,31 +770,59 @@
       return;
     }
 
+    // basic appointment sanity checks
     if (shipAppt && consAppt && consAppt < shipAppt) {
-      alert("ERROR: Delivery appointment cannot be before pickup appointment.");
+      alert("ERROR: Final (90) appointment cannot be before SHIPPER appointment.");
       return;
     }
+    if (stop2Enabled) {
+      if (!stop2Appt) {
+        alert("ERROR: STOP 02 is enabled but has no appointment time.");
+        return;
+      }
+      if (shipAppt && stop2Appt && stop2Appt < shipAppt) {
+        alert("ERROR: STOP 02 appointment cannot be before SHIPPER appointment.");
+        return;
+      }
+      if (stop2Appt && consAppt && consAppt < stop2Appt) {
+        alert("ERROR: Final (90) appointment cannot be before STOP 02 appointment.");
+        return;
+      }
+      if (milesToStop2 <= 0 || !isFinite(milesToStop2)) {
+        alert("ERROR: MILES TO STOP 02 must be greater than zero when STOP 02 is enabled.");
+        return;
+      }
+      if (lm > 0 && milesToStop2 > lm) {
+        alert("ERROR: MILES TO STOP 02 cannot be greater than total LOADED MILES.");
+        return;
+      }
+    }
 
+    // --- BASE DRIVE SEGMENTS ---
+
+    // Trip start -> SHIPPER (STOP 01)
     const driveToShipperHrs = (isFinite(dh)?dh:0) / v;
-
     const ETA_SH = new Date(
       tripStart.getTime()
       + fuelBeforeMs
       + hours(driveToShipperHrs)
     );
-
     const PTA_SH = new Date(ETA_SH.getTime() + dwell(shipStop));
 
+    // Safety limits
     const MAX_DRIVE_MILES = 450;
     const SAFETY_MAX_DRIVE_HRS = 9;
     const FMCSA_MAX_DRIVE_HRS = 11;
 
     const totalDrivingHrs = totalMiles <= 0 ? 0 : (totalMiles / v);
     const breakMs = totalDrivingHrs >= 8 ? minutes(30) : 0;
-    const consDwell = dwell(consStop);
 
+    const finalDwell = dwell(consStop);
+
+    // Time equivalent of 450 miles at entered MPH
     const maxDailyDriveHrsFromMiles = MAX_DRIVE_MILES / v;
 
+    // Driver-favorable safety limit
     const driverFavorableSafetyLimit = Math.max(
       SAFETY_MAX_DRIVE_HRS,
       maxDailyDriveHrsFromMiles
@@ -724,41 +840,93 @@
     const requiredBreaks = Math.max(0, requiredDrivingDays - 1);
     const extraRestMs = hours(10) * requiredBreaks;
 
-    const driveToConsHrs = (isFinite(lm)?lm:0) / v;
+    // --- STOP 02 + FINAL (90) ETA LOGIC ---
 
-    let ETA_CO = new Date(
-      PTA_SH.getTime()
-      + fuelAfterShipperMs
-      + hours(driveToConsHrs)
-      + breakMs
-      + extraRestMs
-    );
+    let ETA_ST2 = null;
+    let PTA_ST2 = null;
+    let ETA_CO = null;
+    let PTA_CO = null;
 
-    let afterConsBufferMs = 0;
+    const loadedMilesSafe = isFinite(lm) ? lm : 0;
+    const milesToStop2Safe = isFinite(milesToStop2) ? milesToStop2 : 0;
 
-    const PTA_CO = new Date(ETA_CO.getTime() + consDwell + afterConsBufferMs + fuelAfterConsigneeMs);
+    if (stop2Enabled && milesToStop2Safe > 0) {
+      // Leg 1: SHIPPER -> STOP 02
+      const driveToStop2Hrs = milesToStop2Safe / v;
+      ETA_ST2 = new Date(
+        PTA_SH.getTime()
+        + fuelAfterShipperMs
+        + hours(driveToStop2Hrs)
+      );
+      PTA_ST2 = new Date(ETA_ST2.getTime() + dwell(stop2Stop));
+
+      // Leg 2: STOP 02 -> FINAL (90)
+      const remainingLoadedMiles = Math.max(0, loadedMilesSafe - milesToStop2Safe);
+      const driveAfterStop2Hrs = remainingLoadedMiles / v;
+
+      ETA_CO = new Date(
+        PTA_ST2.getTime()
+        + hours(driveAfterStop2Hrs)
+        + breakMs
+        + extraRestMs
+      );
+      PTA_CO = new Date(ETA_CO.getTime() + finalDwell);
+    } else {
+      // No STOP 02: SHIPPER -> FINAL (90) in one leg (same as older PRO behavior)
+      const driveToConsHrs = loadedMilesSafe / v;
+      ETA_CO = new Date(
+        PTA_SH.getTime()
+        + fuelAfterShipperMs
+        + hours(driveToConsHrs)
+        + breakMs
+        + extraRestMs
+      );
+      PTA_CO = new Date(ETA_CO.getTime() + finalDwell);
+    }
+
+    // We don't add fuelAfterConsigneeMs to ETA to final, since that's after the last stop.
+    // It could be added into PTA if we ever want PTA "free after fuel", but left out for now.
+    const afterConsBufferMs = 0;
+    const fuelForFinalMs = fuelAfterShipperMs; // fuel that actually affects on-road ETA
+
+    // --- STATUS + EXPLANATION ---
 
     const etaSh = statusClass(ETA_SH, shipAppt);
     const etaCo = statusClass(ETA_CO, consAppt);
 
+    let stop2Active = false;
+    let etaSt2Status = null;
+    if (stop2Enabled && ETA_ST2) {
+      stop2Active = true;
+      etaSt2Status = statusClass(ETA_ST2, stop2Appt);
+    }
+
     const payload = {
       etaSh,
       ptaSh: PTA_SH,
+      stop2Active,
+      etaSt2: etaSt2Status,
+      ptaSt2: PTA_ST2,
       etaCo,
       ptaCo: PTA_CO,
       explainSh: explainETA(ETA_SH, shipAppt),
+      explainSt2: stop2Active
+        ? explainETA(ETA_ST2, stop2Appt, 0, 0, dwell(stop2Stop), 0, 0)
+        : '',
       explainCo: explainETA(
         ETA_CO,
         consAppt,
         breakMs,
         afterConsBufferMs,
-        consDwell,
+        finalDwell,
         extraRestMs,
-        fuelAfterShipperMs + fuelAfterConsigneeMs
+        fuelForFinalMs
       )
     };
 
     showResults(payload);
+
+    // --- SAVE TO RECENT TRIPS ---
 
     saveRecentTrip({
       tripId,
@@ -778,11 +946,27 @@
 
   function resetCalculations(){
     document.querySelectorAll('input').forEach(el=>{
-      if(el.type==='range'){ el.value=60; $('#mphVal').textContent=60; }
-      else if(el.type==='number' || el.type==='datetime-local' || el.type==='text'){ el.value=''; }
+      if(el.type==='range'){
+        el.value=60; 
+        $('#mphVal').textContent=60;
+      }
+      else if(el.type==='number' || el.type==='datetime-local' || el.type==='text'){
+        if(el.id === 'fuelMinutes') {
+          el.value = 30;
+        } else {
+          el.value='';
+        }
+      }
+      else if(el.type === 'checkbox'){
+        el.checked = false;
+      }
     });
     $('#shipperStop').value='DROP30';
     $('#consStop').value='DROP30';
+    if(stop2EnabledEl){
+      stop2EnabledEl.checked = false;
+      updateStop2Visibility();
+    }
     $('#results').style.display='none';
   }
 
@@ -792,11 +976,12 @@
     if(window.hosHasActiveDay && window.hosHasActiveDay()){
       const alsoHos = confirm("Reset HOS clocks (Let’s Roll) as well? \nOK = reset clocks, Cancel = keep clocks running.");
       if(alsoHos && window.hosResetDay){
-        window.hosResetDay();
+        window.hosResetDay(); // daily 10-hr reset, also feeds weekly history
       }
     }
   });
 
+  // load recent trips on startup
   recentTrips = loadRecentTrips();
   renderRecentTrips();
 
@@ -1091,10 +1276,10 @@
       dutyTimeEl.textContent = formatHMS(dutyRemaining);
 
       if (dutyRemaining <= 0) {
-        dutyStatusEl.textContent = "YOU ARE IN VIOLATION — YOU MUST STOP ALL ON-DUTY WORK IMMEDIATELY (14-hour limit used)";
+        dutyStatusEl.textContent = "EXPIRED – 14-hr window used";
         dutyStatusEl.className = "hos-status hos-expired";
       } else if (dutyRemaining <= 2 * 3600) {
-        dutyStatusEl.textContent = "Warning – less than 2 hrs left on 14-hour clock";
+        dutyStatusEl.textContent = "Warning – less than 2 hrs left";
         dutyStatusEl.className = "hos-status hos-warning";
       } else {
         dutyStatusEl.textContent = "Running";
@@ -1102,6 +1287,7 @@
       }
     }
 
+    // Driving clocks
     const totalDriveSeconds =
       state.driveSecondsUsed +
       (state.dutyStatus === "DRIVING" && state.lastStatusChange
@@ -1115,7 +1301,7 @@
       driveStatusEl.textContent = "Not started";
       driveStatusEl.className = "hos-status";
     } else if (driveRemaining <= 0) {
-      driveStatusEl.textContent = "YOU ARE IN VIOLATION — YOU MUST STOP DRIVING IMMEDIATELY (11-hour drive limit reached)";
+      driveStatusEl.textContent = "EXPIRED – 11-hr drive limit";
       driveStatusEl.className = "hos-status hos-expired";
     } else if (totalDriveSeconds >= NINE_HOURS_DRIVE_SECONDS && driveRemaining > 0) {
       driveStatusEl.textContent =
@@ -1132,6 +1318,7 @@
       driveStatusEl.className = "hos-status";
     }
 
+    // 8-hour / 30-min break
     const drivingSinceBreakSeconds =
       state.driveSinceBreakSeconds +
       (state.dutyStatus === "DRIVING" && state.lastStatusChange
@@ -1149,7 +1336,7 @@
       breakTimeEl.textContent = formatHMS(breakClockRemaining);
 
       if (breakClockRemaining <= 0) {
-        breakStatusEl.textContent = "YOU ARE IN VIOLATION — YOU MUST TAKE A 30-MINUTE OFF-DUTY BREAK BEFORE DRIVING";
+        breakStatusEl.textContent = "BREAK REQUIRED – 30-min off duty needed";
         breakStatusEl.className = "hos-status hos-expired";
       } else if (breakClockRemaining <= 3600) {
         breakStatusEl.textContent = "Warning – less than 1 hr to 30-min break";
@@ -1174,6 +1361,7 @@
       }
     }
 
+    // 70-Hr / 8-Day weekly clock
     if (weeklyTimeEl && weeklyStatusEl) {
       let weeklyTotal = 0;
       weeklyDays.forEach(d => {
@@ -1191,7 +1379,7 @@
         weeklyTimeEl.textContent = formatHMS(remaining);
 
         if (remaining <= 0) {
-          weeklyStatusEl.textContent = "YOU ARE IN VIOLATION — 70-hour / 8-day limit exceeded; you must take a legal restart";
+          weeklyStatusEl.textContent = "EXPIRED – 70-hr limit used";
           weeklyStatusEl.className = "hos-status hos-expired";
         } else if (remaining <= 5 * 3600) {
           weeklyStatusEl.textContent = "Warning – less than 5 hrs left";
