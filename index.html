@@ -838,7 +838,7 @@
       : Math.ceil(totalDrivingHrs / maxDailyDriveHrs);
 
     const requiredBreaks = Math.max(0, requiredDrivingDays - 1);
-    const extraRestMs = hours(10) * requiredBreaks;
+    const extraRestMs = hours(12) * requiredBreaks; // 2hr parking buffer + 10hr reset
 
     // --- STOP 02 + FINAL (90) ETA LOGIC ---
 
