@@ -1108,7 +1108,29 @@
     const delta = secondsBetween(last, current);
     if (delta <= 0) return;
 
-    if (state.dutyStatus === "DRIVING") {
+   if (state.dutyStatus === "DRIVING") {
+  state.driveSecondsUsed       += delta;
+  state.driveSinceBreakSeconds += delta;
+  state.onDutySecondsUsed      += delta;
+}
+else if (state.dutyStatus === "ON_DUTY") {
+  state.onDutySecondsUsed      += delta;
+}
+else if (state.dutyStatus === "BREAK") {
+  state.breakSecondsCurrentStint += delta;
+}
+else if (state.dutyStatus === "OFF_DUTY") {
+  // off duty rest, clocks continue running but no work time added
+}
+else if (state.dutyStatus === "SLEEPER") {
+  // sleeper berth rest, same as off duty for now
+}
+else if (state.dutyStatus === "OFF_DUTY") {
+  // off duty rest, clocks continue running but no work time added
+}
+else if (state.dutyStatus === "SLEEPER") {
+  // sleeper berth rest, same as off duty for now
+} (state.dutyStatus === "DRIVING") {
       state.driveSecondsUsed        += delta;
       state.driveSinceBreakSeconds  += delta;
       state.onDutySecondsUsed       += delta;
