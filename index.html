@@ -22,6 +22,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>HOS Load Calculator PRO (Offline)</title>
 <meta name="theme-color" content="#0f172a" />
+<link rel="manifest" href="/manifest.webmanifest">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('Service Worker registered!'))
+        .catch(err => console.log('Service Worker failed: ', err));
+    });
+  }
+</script>
 <style>
   :root{
     --bg:#0b1020; --card:#111936; --ink:#e6ecff; --muted:#96a2c7;
