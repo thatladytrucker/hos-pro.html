@@ -1121,17 +1121,7 @@
     const delta = secondsBetween(last, current);
     if (delta <= 0) return;
 
-   if (state.dutyStatus === "DRIVING") {
-  state.driveSecondsUsed       += delta;
-  state.driveSinceBreakSeconds += delta;
-  state.onDutySecondsUsed      += delta;
-}
-else if (state.dutyStatus === "ON_DUTY") {
-  state.onDutySecondsUsed      += delta;
-}
-else if (state.dutyStatus === "BREAK") {
-  state.breakSecondsCurrentStint += delta;
-}
+
 if (state.dutyStatus === "DRIVING") {
   state.driveSecondsUsed       += delta;
   state.driveSinceBreakSeconds += delta;
